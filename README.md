@@ -1,5 +1,7 @@
 # PullStack
 
+📖 **Language:** [English](README.md) · [한국어](README.ko.md)
+
 **A GitHub PR collaboration-risk analyzer for teams shipping AI-assisted code.**
 
 PullStack is **not a code generator** and **not a generic AI reviewer**. It is a
