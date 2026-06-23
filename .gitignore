@@ -1,0 +1,5 @@
+node_modules/
+dist/
+.pullstack/
+*.log
+.DS_Store

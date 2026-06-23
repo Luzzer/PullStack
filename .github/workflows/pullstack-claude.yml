@@ -1,0 +1,74 @@
+# OPTIONAL: PullStack + Claude Code semantic analysis.
+#
+# This is an EXAMPLE. Claude Code Action syntax varies by version — adjust the
+# `anthropics/claude-code-action` step (inputs, version tag, prompt wiring) to
+# match the version you use. The deterministic PullStack analyzer works on its
+# own; this workflow layers Claude's semantic analysis on top.
+#
+# Flow:
+#   1. pullstack analyze --comment false   -> writes claude-analysis-prompt.md
+#   2. Claude Code reads the prompt         -> writes .pullstack/semantic-analysis.json
+#   3. pullstack analyze --comment true     -> merges semantic result + posts comment
+
+name: PullStack (Claude semantic)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  analyze:
+    # Skip on forks: secrets (ANTHROPIC_API_KEY) are not available there.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build
+
+      # Pass 1: deterministic analysis + generate the Claude prompt. No comment yet.
+      - name: PullStack (deterministic)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node dist/cli.js analyze --base "origin/${{ github.base_ref }}" --head HEAD --comment false
+
+      # Claude Code reads .pullstack/claude-analysis-prompt.md and writes
+      # .pullstack/semantic-analysis.json. ADJUST to your Claude Code Action version.
+      - name: Claude semantic analysis
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Many versions accept a prompt or prompt_file input. Example:
+          prompt_file: .pullstack/claude-analysis-prompt.md
+          # Ensure Claude is allowed to write the output file.
+          # allowed_tools: "Write,Read,Bash(git diff:*)"
+
+      # Pass 2: merge the semantic result and post the final comment.
+      - name: PullStack (final, with semantic)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node dist/cli.js analyze --base "origin/${{ github.base_ref }}" --head HEAD --comment true
+
+      - name: Upload report artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pullstack-report
+          path: |
+            .pullstack/report.md
+            .pullstack/report.json
+            .pullstack/claude-analysis-prompt.md
+            .pullstack/semantic-analysis.json
+          if-no-files-found: warn

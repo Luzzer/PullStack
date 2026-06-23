@@ -1,0 +1,56 @@
+# PullStack configuration (optional).
+# Copy to `.pullstack.yml` and adjust. If absent, sensible defaults are used.
+
+project:
+  name: "example-project"
+  default_base: "origin/main"
+
+# Thresholds that flag a PR as "large".
+risk:
+  large_pr_changed_files: 20
+  large_pr_added_lines: 800
+  large_pr_deleted_lines: 400
+
+# Files whose change can break other teams/code. Glob patterns (minimatch).
+shared_contracts:
+  - "src/types.ts"
+  - "src/types/**"
+  - "src/api/**"
+  - "src/schema/**"
+  - "proto/**"
+  - "packages/*/src/types/**"
+
+# High-sensitivity paths that require extra scrutiny / owner approval.
+protected_paths:
+  - "src/auth/**"
+  - "src/security/**"
+  - "src/db/migrations/**"
+  - "infra/**"
+  - ".github/workflows/**"
+
+# What counts as a test file (used by the missing-tests rule).
+test_patterns:
+  - "**/*.test.ts"
+  - "**/*.spec.ts"
+  - "tests/**"
+  - "__tests__/**"
+
+# CODEOWNERS-like mapping: changed files under `paths` suggest `reviewers`.
+owners:
+  - paths:
+      - "src/auth/**"
+      - "src/security/**"
+    reviewers:
+      - "@security-owner"
+  - paths:
+      - "infra/**"
+      - ".github/workflows/**"
+    reviewers:
+      - "@infra-owner"
+
+# Declared scope of the PR. Leave empty to disable scope rules.
+scope:
+  # If non-empty, changes outside these paths are flagged as scope drift.
+  declared_allowed_paths: []
+  # Changes touching these paths are flagged as forbidden-scope violations.
+  declared_forbidden_paths: []

@@ -1,0 +1,57 @@
+name: PullStack
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+# Least-privilege: read code, write PR comments. For fork PRs GitHub downgrades
+# pull-requests to read-only; the tool detects this and uploads an artifact
+# instead of failing.
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: pullstack-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (full history for diffing)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test
+
+      - name: Run PullStack
+        env:
+          # GITHUB_TOKEN is provided automatically; used for PR comments + overlap.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node dist/cli.js analyze --base "origin/${{ github.base_ref }}" --head HEAD
+
+      - name: Upload report artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pullstack-report
+          path: |
+            .pullstack/report.md
+            .pullstack/report.json
+            .pullstack/claude-analysis-prompt.md
+          if-no-files-found: warn
